@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理画面 - Moyashi URL Shortener</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMzRkMzk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEzLjgyOCAxMC4xNzJhNCA0IDAgMDAtNS42NTYgMGwtNCA0YTQgNCAwIDEwNS42NTYgNS42NTZsMS4xMDItMS4xMDFtLS43NTgtNC44OTlhNCA0IDAgMDA1LjY1NiAwbDQtNGE0IDQgMCAwMC01LjY1Ni01LjY1NmwtMS4xIDEuMSIvPjwvc3ZnPg==">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/reset/tailwind.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/runtime/uno.css">
+    <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime/uno.global.js"></script>
+    <style>
+        [un-cloak] {
+            opacity: 0;
+        }
+        .preload * {
+            -webkit-transition: none !important;
+            -moz-transition: none !important;
+            -ms-transition: none !important;
+            -o-transition: none !important;
+            transition: none !important;
+        }
+        body {
+            background: #18181b;
+            min-height: 100vh;
+            color: #fafafa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        .main-content {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+        }
+        .main-content.loaded {
+            opacity: 1;
+        }
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background-color: #18181b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease-out;
+        }
+        #loading-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #27272a;
+            border-top-color: #34d399;
+            border-radius: 50%;
+            animation: spinner 0.8s linear infinite;
+        }
+        @keyframes spinner {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .card {
+            background: rgba(24, 24, 27, 0.6);
+            border: 1px solid rgba(63, 63, 70, 0.3);
+            border-radius: 0.75rem;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        .stats-card {
+            position: relative;
+            overflow: hidden;
+            background: rgba(24, 24, 27, 0.6);
+            border: 1px solid rgba(63, 63, 70, 0.3);
+            border-radius: 0.75rem;
+        }
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.1), transparent);
+            opacity: 0.2;
+        }
+        .chart-container {
+            position: relative;
+            background: rgba(24, 24, 27, 0.6);
+        }
+        .url-table {
+            position: relative;
+            background: rgba(24, 24, 27, 0.6);
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+        .url-table-header {
+            background: rgba(24, 24, 27, 0.8);
+            border-bottom: 1px solid rgba(63, 63, 70, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .url-row {
+            transition: all 0.2s ease;
+            border-bottom: 1px solid rgba(63, 63, 70, 0.1);
+        }
+        .url-row:hover {
+            background: rgba(63, 63, 70, 0.2);
+        }
+        .button-base {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            background: rgba(39, 39, 42, 0.6);
+            border: 1px solid rgba(63, 63, 70, 0.3);
+            color: #d4d4d8;
+            font-weight: 500;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+        }
+        .button-base:hover {
+            background: rgba(63, 63, 70, 0.4);
+            transform: translateY(-1px);
+        }
+        .button-primary {
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            color: #34d399;
+        }
+        .button-primary:hover {
+            background: rgba(52, 211, 153, 0.2);
+        }
+        .button-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        .button-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+        .icon-container {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            color: #34d399;
+        }
+        .form-checkbox {
+            border-radius: 0.25rem;
+            border-color: rgba(63, 63, 70, 0.5);
+            background-color: rgba(24, 24, 27, 0.8);
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        .form-checkbox:checked {
+            background-color: #34d399;
+            border-color: #34d399;
+        }
+        .form-checkbox:focus-visible {
+            box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.2);
+            border-color: #34d399;
+        }
+        .search-input {
+            background: rgba(24, 24, 27, 0.8);
+            border: 1px solid rgba(63, 63, 70, 0.3);
+            border-radius: 0.5rem;
+            padding: 0.5rem 1rem;
+            padding-left: 2.5rem;
+            color: #fafafa;
+            width: 100%;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        .search-input:focus-visible {
+            border-color: rgba(52, 211, 153, 0.3);
+            box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.1);
+        }
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #71717a;
+            pointer-events: none;
+        }
+        .pagination-button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            background: rgba(39, 39, 42, 0.6);
+            border: 1px solid rgba(63, 63, 70, 0.3);
+            color: #d4d4d8;
+            transition: all 0.2s ease;
+        }
+        .pagination-button:hover:not(:disabled) {
+            background: rgba(63, 63, 70, 0.4);
+        }
+        .pagination-button.active {
+            background: rgba(52, 211, 153, 0.1);
+            border-color: rgba(52, 211, 153, 0.2);
+            color: #34d399;
+        }
+        .pagination-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            background-color: rgba(24, 24, 27, 0.8);
+            backdrop-filter: blur(8px);
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+        }
+        .modal.show {
+            display: flex;
+            opacity: 1;
+        }
+        .modal .card {
+            transform: translateY(20px);
+            transition: transform 0.3s ease-out;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal.show .card {
+            transform: translateY(0);
+        }
+        .notification {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            background: rgba(24, 24, 27, 0.95);
+            border: 1px solid rgba(63, 63, 70, 0.3);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateY(100%);
+            opacity: 0;
+            transition: all 0.3s ease-out;
+            z-index: 100;
+        }
+        .notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .notification.success {
+            background: rgba(52, 211, 153, 0.1);
+            border-color: rgba(52, 211, 153, 0.3);
+        }
+        .notification.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        @media (max-width: 640px) {
+            .stats-card {
+                padding: 1rem;
+            }
+            
+            .stats-card .icon-container {
+                width: 2rem;
+                height: 2rem;
+                font-size: 0.875rem;
+            }
+            
+            .stats-card .text-xs {
+                font-size: 0.75rem;
+            }
+            
+            .stats-card .text-2xl {
+                font-size: 1.25rem;
+            }
+            
+            .stats-card .mt-1 {
+                margin-top: 0.25rem;
+            }
+        }
+        @media (max-width: 640px) {
+            header {
+                padding: 0.5rem 0;
+            }
+            
+            header .container {
+                padding: 0 1rem;
+            }
+            
+            header h1 {
+                font-size: 0.875rem;
+            }
+            
+            header .space-x-2 > * {
+                margin-left: 0.5rem;
+            }
+            
+            header .space-x-2 > *:first-child {
+                margin-left: 0;
+            }
+            
+            header nav {
+                font-size: 0.75rem;
+            }
+            
+            header nav .gap-2 {
+                gap: 0.375rem;
+            }
+            
+            header .w-px {
+                margin: 0 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-zinc-900 min-h-screen text-zinc-100">
+    <div id="loading-screen">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="background-pattern fixed inset-0 bg-[url('https://www.transparenttextures.com/patterns/subtle-dots.png')] opacity-5 pointer-events-none"></div>
+        <header class="fixed w-full top-0 z-50 bg-zinc-900/90 backdrop-blur-sm border-b border-zinc-800">
+            <div class="container mx-auto px-4 py-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <h1 class="flex items-center">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-base font-mono text-emerald-400">moyashi</span>
+                            <div class="h-4 w-px bg-zinc-800"></div>
+                            <span class="text-xs font-mono text-zinc-400">url.shortener</span>
+                            <div class="h-4 w-px bg-zinc-800"></div>
+                            <span class="text-xs font-mono text-zinc-400">admin</span>
+                        </div>
+                    </h1>
+                    <nav class="flex items-center gap-4">
+                        <a href="/api-document" class="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors text-sm">
+                            <i class="fas fa-book text-emerald-400"></i>
+                            <span>Api Document</span>
+                        </a>
+                        <button onclick="logout()" class="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 transition-colors text-sm">
+                            <i class="fas fa-sign-out-alt text-emerald-400"></i>
+                            <span>ログアウト</span>
+                        </button>
+                    </nav>
+                </div>
+            </div>
+        </header>
+        <main class="container mx-auto px-4 py-8 pt-24">
+            <div class="max-w-7xl mx-auto space-y-8">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="card stats-card">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="icon-container">
+                                <i class="fas fa-link"></i>
+                            </div>
+                            <div class="text-xs text-zinc-500">総URL数</div>
+                        </div>
+                        <div class="text-2xl font-bold text-emerald-400" id="totalUrls">0</div>
+                        <div class="mt-1 text-xs text-zinc-400">登録済みURL</div>
+                    </div>
+                    <div class="card stats-card">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="icon-container">
+                                <i class="fas fa-eye"></i>
+                            </div>
+                            <div class="text-xs text-zinc-500">総アクセス数</div>
+                        </div>
+                        <div class="text-2xl font-bold text-emerald-400" id="totalAccesses">0</div>
+                        <div class="mt-1 text-xs text-zinc-400">総アクセス数</div>
+                    </div>
+                    <div class="card stats-card">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="icon-container">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="text-xs text-zinc-500">24時間以内の新規URL</div>
+                        </div>
+                        <div class="text-2xl font-bold text-emerald-400" id="newUrls">0</div>
+                        <div class="mt-1 text-xs text-zinc-400">新規URL数</div>
+                    </div>
+                    <div class="card stats-card">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="icon-container">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="text-xs text-zinc-500">平均アクセス数/URL</div>
+                        </div>
+                        <div class="text-2xl font-bold text-emerald-400" id="avgAccesses">0</div>
+                        <div class="mt-1 text-xs text-zinc-400">平均アクセス数</div>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="icon-container">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                        <h2 class="text-lg font-medium text-zinc-100">アクセス統計</h2>
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="button-base text-sm" onclick="switchChart('daily')">日別</button>
+                            <button class="button-base text-sm" onclick="switchChart('weekly')">週別</button>
+                            <button class="button-base text-sm" onclick="switchChart('monthly')">月別</button>
+                    </div>
+                    </div>
+                    <div class="h-[200px]">
+                        <canvas id="statsChart"></canvas>
+                    </div>
+                </div>
+                <div class="space-y-6">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="icon-container">
+                                <i class="fas fa-link"></i>
+                            </div>
+                        <h2 class="text-lg font-medium text-zinc-100">URL管理</h2>
+                        </div>
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="flex gap-3">
+                                <div class="relative">
+                                    <i class="fas fa-search search-icon"></i>
+                                    <input type="text" id="urlSearch" placeholder="URLやタイトルで検索..." 
+                                        class="search-input min-w-[300px]">
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <select id="filterType" class="search-input w-auto py-2 pl-3 pr-8">
+                                        <option value="all">すべて</option>
+                                        <option value="active">アクティブ</option>
+                                        <option value="expired">期限切れ</option>
+                                        <option value="limited">アクセス制限あり</option>
+                                    </select>
+                                </div>
+                            </div>
+                        <div class="flex gap-3">
+                            <button onclick="exportData('csv')" class="button-base">
+                                <i class="fas fa-file-csv text-emerald-400 mr-2"></i>CSVエクスポート
+                            </button>
+                                <div class="relative">
+                                    <button onclick="showBatchMenu()" class="button-base">
+                                <i class="fas fa-layer-group text-emerald-400 mr-2"></i>一括操作
+                                    </button>
+                                    <div id="batchMenu" class="hidden absolute right-0 mt-2 w-48 rounded-lg bg-zinc-800 shadow-lg border border-zinc-700 z-20">
+                                        <div class="py-2">
+                                            <button onclick="executeBatchOperation('delete')" class="w-full px-4 py-2 text-left text-zinc-300 hover:bg-zinc-700/50">
+                                                <i class="fas fa-trash text-red-400 mr-2"></i>一括削除
+                                            </button>
+                                            <button onclick="executeBatchOperation('export')" class="w-full px-4 py-2 text-left text-zinc-300 hover:bg-zinc-700/50">
+                                                <i class="fas fa-file-export text-emerald-400 mr-2"></i>選択項目のエクスポート
+                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card url-table">
+                        <div class="url-table-header grid grid-cols-[auto,2fr,3fr,1fr,1fr,1fr,auto] gap-4 p-4">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="selectAll" class="form-checkbox">
+                        </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-zinc-300">短縮URL</span>
+                                <button onclick="sortUrls('shortened')" class="text-zinc-500 hover:text-zinc-300">
+                                    <i class="fas fa-sort"></i>
+                                </button>
+                    </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-zinc-300">元URL / タイトル</span>
+                                <button onclick="sortUrls('original')" class="text-zinc-500 hover:text-zinc-300">
+                                    <i class="fas fa-sort"></i>
+                        </button>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-zinc-300">アクセス数</span>
+                                <button onclick="sortUrls('access_count')" class="text-zinc-500 hover:text-zinc-300">
+                                    <i class="fas fa-sort"></i>
+                        </button>
+                    </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-zinc-300">制限</span>
+                                <button onclick="sortUrls('access_limit')" class="text-zinc-500 hover:text-zinc-300">
+                                    <i class="fas fa-sort"></i>
+                        </button>
+                    </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-zinc-300">作成日</span>
+                                <button onclick="sortUrls('created_at')" class="text-zinc-500 hover:text-zinc-300">
+                                    <i class="fas fa-sort"></i>
+                                </button>
+                            </div>
+                            <span class="font-medium text-zinc-300">操作</span>
+                        </div>
+                        <div id="urlList" class="divide-y divide-zinc-800/30"></div>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-4">
+                            <div class="text-sm text-zinc-400">
+                                <span id="selectedCount">0</span> 件選択中
+                            </div>
+                            <div class="text-sm text-zinc-400">
+                                全 <span id="totalCount">0</span> 件
+                            </div>
+                        </div>
+                        <div class="flex gap-2" id="pagination"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <div id="authModal" class="modal fixed inset-0 flex items-center justify-center z-50">
+            <div class="card w-full max-w-md p-8">
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center mb-6">
+                        <span class="text-2xl font-mono text-emerald-400">moyashi</span>
+                        <span class="text-zinc-600 mx-3">//</span>
+                        <span class="text-sm font-mono text-zinc-400">url.shortener</span>
+                    </div>
+                    <h2 class="text-2xl font-medium text-zinc-100">管理者認証</h2>
+                    <p class="text-zinc-400 mt-3">続行するには認証が必要です</p>
+                </div>
+                <div class="space-y-4">
+                    <div class="relative">
+                        <input type="password" id="adminSecret" 
+                            class="w-full px-4 py-3 rounded-lg bg-zinc-800/80 border border-zinc-700/50 text-zinc-100 placeholder-zinc-500
+                            focus:outline-none focus:bg-zinc-800 focus:border-emerald-400/30"
+                            placeholder="ADMIN_SECRET入力">
+                    </div>
+                    <button onclick="authenticate()" class="button-primary w-full px-4 py-3">
+                        認証
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="deleteModal" class="modal">
+            <div class="card w-full max-w-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-medium text-zinc-100">URLの削除</h2>
+                    <button class="modal-close text-zinc-400 w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800/50">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="mb-6">
+                    <p class="text-zinc-300 mb-2">このURLを削除してもよろしいですか？</p>
+                    <p class="text-zinc-400">この操作は取り消せません。</p>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button class="button-base" id="cancelDelete">キャンセル</button>
+                    <button class="button-danger" id="confirmDelete">削除</button>
+                </div>
+            </div>
+        </div>
+        <div id="batchModal" class="modal">
+            <div class="card w-full max-w-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-medium text-zinc-100">一括操作</h2>
+                    <button class="modal-close text-zinc-400 w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800/50">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="mb-6">
+                    <p class="text-zinc-300 mb-4">選択したURLに対して以下の操作を実行します：</p>
+                    <div class="space-y-3">
+                        <button onclick="executeBatchOperation('delete')" class="button-danger w-full">
+                            <i class="fas fa-trash mr-2"></i>一括削除
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="notification" class="notification">
+            <i class="fas fa-check-circle text-emerald-400"></i>
+            <span id="notificationMessage" class="text-zinc-100"></span>
+        </div>
+    </div>
+    <div id="urlDetailModal" class="modal">
+        <div class="card w-full max-w-2xl p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-lg font-medium text-zinc-100">URL詳細</h2>
+                <button class="modal-close text-zinc-400 w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-800/50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-6" id="urlDetailContent">
+                <div class="grid grid-cols-[120px,1fr] gap-4">
+                    <div class="text-zinc-400">短縮URL</div>
+                    <div class="flex items-center gap-2">
+                        <span id="detailShortUrl" class="text-emerald-400 font-mono"></span>
+                        <button onclick="copyDetailUrl()" class="text-zinc-500 hover:text-emerald-400 transition-colors">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="text-zinc-400">元URL</div>
+                    <div id="detailOriginalUrl" class="text-zinc-300 break-all"></div>
+                    <div class="text-zinc-400">タイトル</div>
+                    <div id="detailTitle" class="text-zinc-300"></div>
+                    <div class="text-zinc-400">アクセス数</div>
+                    <div id="detailAccessCount" class="text-zinc-300"></div>
+                    <div class="text-zinc-400">アクセス制限</div>
+                    <div id="detailAccessLimit" class="text-zinc-300"></div>
+                    <div class="text-zinc-400">有効期限</div>
+                    <div id="detailExpiresAt" class="text-zinc-300"></div>
+                    <div class="text-zinc-400">作成日時</div>
+                    <div id="detailCreatedAt" class="text-zinc-300"></div>
+                </div>
+                <div class="border-t border-zinc-800 pt-6">
+                    <h3 class="text-zinc-300 font-medium mb-4">アクセス統計</h3>
+                    <div class="h-[200px]">
+                        <canvas id="urlAccessChart"></canvas>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button class="button-base modal-close">閉じる</button>
+                    <button onclick="showDeleteModal(currentDetailUrl)" class="button-danger">
+                        <i class="fas fa-trash mr-2"></i>削除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const globals = {
+            searchTimeout: null,
+            currentDetailUrl: null,
+            urlAccessChart: null,
+            chart: null
+        };
+        document.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                initializeSearch();
+                initializeModals();
+                initializeFilters();
+                switchChart('daily');
+            }
+        });
+        function initializeSearch() {
+            const searchInput = document.getElementById('urlSearch');
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(globals.searchTimeout);
+                globals.searchTimeout = setTimeout(() => {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const filterType = document.getElementById('filterType').value;
+                    loadUrls(1, filterType, searchTerm);
+                }, 300);
+            });
+        }
+        function initializeModals() {
+            document.querySelectorAll('.modal-close').forEach(button => {
+                button.addEventListener('click', () => {
+                    const modal = button.closest('.modal');
+                    modal.classList.remove('show');
+                });
+            });
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('show');
+                    }
+                });
+            });
+        }
+        function initializeFilters() {
+            const filterSelect = document.getElementById('filterType');
+            filterSelect.addEventListener('change', function() {
+                loadUrls(1, this.value, document.getElementById('urlSearch').value);
+            });
+        }
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                Promise.all([
+                    document.fonts.ready,
+                    new Promise(resolve => {
+                        const bgImage = new Image();
+                        bgImage.src = 'https://www.transparenttextures.com/patterns/subtle-dots.png';
+                        bgImage.onload = resolve;
+                    }),
+                    new Promise(resolve => setTimeout(resolve, 300))
+                ]).then(() => {
+                    const mainContent = document.querySelector('.main-content');
+                    mainContent.classList.add('loaded');
+                    const loadingScreen = document.getElementById('loading-screen');
+                    loadingScreen.classList.add('fade-out');
+                    setTimeout(() => {
+                        loadingScreen.style.display = 'none';
+                    }, 500);
+                    if (checkAuth()) {
+                        loadStats();
+                        loadUrls();
+                    }
+                });
+            }, 500);
+        });
+        const getAuthToken = () => localStorage.getItem('adminToken');
+        const getAuthHeaders = () => ({
+            'Authorization': getAuthToken(),
+            'Content-Type': 'application/json'
+        });
+        async function checkAuth() {
+            const token = getAuthToken();
+            if (!token) {
+                showAuthModal();
+                return false;
+            }
+
+            try {
+                const response = await fetch('/admin/check-auth', {
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    showAuthModal();
+                    return false;
+                }
+                return true;
+            } catch (error) {
+                console.error('認証チェックエラー:', error);
+                showNotification('認証チェックに失敗しました', 'error');
+                return false;
+            }
+        }
+        function showAuthModal() {
+            const authModal = document.getElementById('authModal');
+            authModal.classList.add('show');
+            document.getElementById('adminSecret').value = '';
+        }
+        async function authenticate() {
+            const secret = document.getElementById('adminSecret').value.trim();
+            
+            if (!secret) {
+                showNotification('ADMIN_SECRETを入力してください', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/admin/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ secret })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('adminToken', data.token);
+                    const authModal = document.getElementById('authModal');
+                    authModal.classList.remove('show');
+                    document.getElementById('adminSecret').value = '';
+                    await loadStats();
+                    await loadUrls();
+                    showNotification('認証に成功しました');
+                } else {
+                    showNotification(data.error || '認証に失敗しました', 'error');
+                }
+            } catch (error) {
+                console.error('認証エラー:', error);
+                showNotification('認証処理中にエラーが発生しました', 'error');
+            }
+        }
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const messageElement = document.getElementById('notificationMessage');
+            const icon = notification.querySelector('i');
+            
+            messageElement.textContent = message;
+            notification.classList.remove('success', 'error');
+            
+            if (type === 'error') {
+                icon.className = 'fas fa-exclamation-circle text-red-400';
+                notification.classList.add('error');
+            } else {
+                icon.className = 'fas fa-check-circle text-emerald-400';
+                notification.classList.add('success');
+            }
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        async function loadStats() {
+            try {
+                const response = await fetch('/admin/stats', {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('totalUrls').textContent = data.total_urls;
+                    document.getElementById('totalAccesses').textContent = data.total_accesses;
+                    document.getElementById('newUrls').textContent = data.urls_last_24h;
+                    document.getElementById('avgAccesses').textContent = 
+                        data.total_urls > 0 ? Math.round(data.total_accesses / data.total_urls) : 0;
+                } else if (response.status === 401) {
+                    showAuthModal();
+                }
+            } catch (error) {
+                console.error('統計情報の読み込みエラー:', error);
+                showNotification('統計情報の読み込みに失敗しました', 'error');
+            }
+        }
+        async function loadUrls(page = 1, filterType = 'all', searchTerm = '') {
+            try {
+                const params = new URLSearchParams({
+                    page: page,
+                    filter: filterType,
+                    search: searchTerm,
+                    per_page: 10
+                });
+
+                const response = await fetch(`/admin/urls?${params}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateUrlList(data.urls);
+                    updatePagination(data.page, data.total_pages);
+                    document.getElementById('totalCount').textContent = data.total;
+                } else if (response.status === 401) {
+                    showAuthModal();
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'URLの読み込みに失敗しました');
+                }
+            } catch (error) {
+                console.error('URL一覧の読み込みエラー:', error);
+                showNotification(error.message || 'URL一覧の読み込みに失敗しました', 'error');
+            }
+        }
+        function updateUrlList(urls) {
+            const urlList = document.getElementById('urlList');
+            urlList.innerHTML = '';
+
+            urls.forEach(url => {
+                const isExpired = url.expires_at && new Date(url.expires_at) < new Date();
+                const isLimited = url.access_limit !== null;
+                const statusClass = isExpired ? 'text-red-400' : (isLimited ? 'text-yellow-400' : 'text-emerald-400');
+                
+                const row = document.createElement('div');
+                row.className = 'grid grid-cols-[auto,2fr,3fr,1fr,1fr,1fr,auto] gap-4 p-4 items-center hover:bg-zinc-800/20 transition-colors duration-200';
+                
+                row.innerHTML = `
+                    <div class="flex items-center">
+                        <input type="checkbox" class="url-checkbox form-checkbox" data-url="${url.shortened}">
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="${statusClass} font-mono">${url.shortened}</span>
+                        <button onclick="copyUrl('${url.shortened}')" class="text-zinc-500 hover:text-emerald-400 transition-colors">
+                            <i class="fas fa-copy text-xs"></i>
+                        </button>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-zinc-300 truncate">${url.original}</span>
+                        <span class="text-zinc-500 text-sm truncate">${url.title || ''}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-eye text-zinc-500 text-sm"></i>
+                        <span class="text-zinc-300">${url.access_count}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        ${getLimitBadge(url)}
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-calendar text-zinc-500 text-sm"></i>
+                        <span class="text-zinc-300">${formatDate(url.created_at, true)}</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="showUrlDetails('${url.shortened}')" class="p-2 rounded-lg bg-zinc-800/30 hover:bg-zinc-700/30 transition-colors" title="詳細を表示">
+                            <i class="fas fa-info-circle text-emerald-400"></i>
+                        </button>
+                        <button onclick="showDeleteModal('${url.shortened}')" class="p-2 rounded-lg bg-zinc-800/30 hover:bg-red-400/10 text-red-400 transition-colors" title="URLを削除">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                urlList.appendChild(row);
+            });
+
+            updateCheckboxState();
+        }
+        function updateCheckboxState() {
+            const checkboxes = document.querySelectorAll('.url-checkbox');
+            const selectedCount = document.getElementById('selectedCount');
+            const selectAll = document.getElementById('selectAll');
+
+            function updateCount() {
+                const checkedCount = document.querySelectorAll('.url-checkbox:checked').length;
+                selectedCount.textContent = checkedCount;
+            }
+
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    updateCount();
+                    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                    const someChecked = Array.from(checkboxes).some(cb => cb.checked);
+                    selectAll.checked = allChecked;
+                    selectAll.indeterminate = someChecked && !allChecked;
+                });
+            });
+
+            selectAll.addEventListener('change', function() {
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+                updateCount();
+            });
+
+            updateCount();
+        }
+        function copyUrl(url) {
+            navigator.clipboard.writeText(`https://s.moyashi.xyz/${url}`).then(() => {
+                showNotification('URLをコピーしました');
+            }).catch(err => {
+                console.error('コピーに失敗しました:', err);
+                showNotification('URLのコピーに失敗しました', 'error');
+            });
+        }
+        function showDeleteModal(url) {
+            const modal = document.getElementById('deleteModal');
+            modal.classList.add('show');
+            
+            const confirmButton = document.getElementById('confirmDelete');
+            const cancelButton = document.getElementById('cancelDelete');
+            const closeButton = modal.querySelector('.modal-close');
+            confirmButton.replaceWith(confirmButton.cloneNode(true));
+            cancelButton.replaceWith(cancelButton.cloneNode(true));
+            closeButton.replaceWith(closeButton.cloneNode(true));
+            document.getElementById('confirmDelete').onclick = () => deleteUrl(url);
+            document.getElementById('cancelDelete').onclick = () => modal.classList.remove('show');
+            modal.querySelector('.modal-close').onclick = () => modal.classList.remove('show');
+        }
+        async function deleteUrl(url) {
+            try {
+                const response = await fetch(`/admin/url/${url}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    document.getElementById('deleteModal').classList.remove('show');
+                    showNotification('URLを削除しました');
+                    await loadStats();
+                    await loadUrls();
+                } else {
+                    const data = await response.json();
+                    throw new Error(data.error || 'URLの削除に失敗しました');
+                }
+            } catch (error) {
+                console.error('削除エラー:', error);
+                showNotification(error.message || '削除処理中にエラーが発生しました', 'error');
+            }
+        }
+        async function logout() {
+            try {
+                await fetch('/admin/logout', {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+            localStorage.removeItem('adminToken');
+                showAuthModal();
+                showNotification('ログアウトしました');
+            } catch (error) {
+                console.error('ログアウトエラー:', error);
+                showNotification('ログアウト処理中にエラーが発生しました', 'error');
+            }
+        }
+        function updateChart(data) {
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            
+            if (globals.chart) {
+                globals.chart.destroy();
+            }
+
+            globals.chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'アクセス数',
+                        data: data.values,
+                        borderColor: '#34d399',
+                        backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(63, 63, 70, 0.2)'
+                            },
+                            ticks: {
+                                color: '#71717a',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(63, 63, 70, 0.2)'
+                            },
+                            ticks: {
+                                color: '#71717a',
+                                font: {
+                                    size: 11
+                                },
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        async function switchChart(period) {
+            try {
+                const response = await fetch(`/admin/stats/chart?period=${period}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateChart(data);
+                }
+            } catch (error) {
+                console.error('チャートデータの読み込みエラー:', error);
+                showNotification('チャートデータの読み込みに失敗しました', 'error');
+            }
+        }
+        async function exportData(format) {
+            try {
+                const response = await fetch(`/admin/export?format=${format}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `urls.${format}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showNotification('エクスポートが完了しました');
+                } else {
+                    showNotification('エクスポートに失敗しました', 'error');
+                }
+            } catch (error) {
+                console.error('エクスポートエラー:', error);
+                showNotification('エクスポート処理中にエラーが発生しました', 'error');
+            }
+        }
+        function showBatchActions() {
+            const selectedUrls = getSelectedUrls();
+            if (selectedUrls.length === 0) {
+                showNotification('URLを選択してください', 'error');
+                return;
+            }
+
+            const modal = document.getElementById('batchModal');
+            modal.classList.add('show');
+
+            const closeButtons = modal.querySelectorAll('.modal-close');
+            closeButtons.forEach(button => {
+                button.onclick = () => {
+                    modal.classList.remove('show');
+                };
+            });
+        }
+        function getSelectedUrls() {
+            const checkboxes = document.querySelectorAll('.url-checkbox:checked');
+            return Array.from(checkboxes).map(checkbox => checkbox.dataset.url);
+        }
+        async function executeBatchOperation(operation) {
+            const selectedUrls = getSelectedUrls();
+            if (selectedUrls.length === 0) {
+                showNotification('URLを選択してください', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/admin/urls/batch', {
+                    method: 'POST',
+                    headers: {
+                        ...getAuthHeaders(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        operation: operation,
+                        urls: selectedUrls
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('batchModal').classList.remove('show');
+                    document.getElementById('batchMenu').classList.add('hidden');
+                    showNotification(data.message);
+                    await loadStats();
+                    await loadUrls();
+                } else {
+                    throw new Error(data.error || '操作に失敗しました');
+                }
+            } catch (error) {
+                console.error('一括操作エラー:', error);
+                showNotification(error.message || '操作中にエラーが発生しました', 'error');
+            }
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            if (checkAuth()) {
+                switchChart('daily');
+            }
+        });
+        function getLimitBadge(url) {
+            if (url.expires_at && new Date(url.expires_at) < new Date()) {
+                return `<span class="px-2 py-1 rounded-full text-xs bg-red-400/10 text-red-400">期限切れ</span>`;
+            }
+            if (url.access_limit !== null) {
+                const remaining = url.access_limit - url.access_count;
+                const color = remaining <= 0 ? 'red' : (remaining <= 5 ? 'yellow' : 'emerald');
+                return `<span class="px-2 py-1 rounded-full text-xs bg-${color}-400/10 text-${color}-400">残り ${Math.max(0, remaining)} 回</span>`;
+            }
+            return `<span class="px-2 py-1 rounded-full text-xs bg-emerald-400/10 text-emerald-400">無制限</span>`;
+        }
+
+        function formatDate(dateString, isCreatedAt = false) {
+            if (!dateString && !isCreatedAt) return '無期限';
+            try {
+                const date = new Date(dateString);
+                if (isNaN(date.getTime())) {
+                    return isCreatedAt ? '不明' : '無期限';
+                }
+                return new Intl.DateTimeFormat('ja-JP', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }).format(date);
+            } catch (error) {
+                console.error('日付フォーマットエラー:', error);
+                return isCreatedAt ? '不明' : '無期限';
+            }
+        }
+
+        let currentDetailUrl = null;
+        let urlAccessChart = null;
+
+        async function showUrlDetails(shortened) {
+            currentDetailUrl = shortened;
+            const modal = document.getElementById('urlDetailModal');
+            modal.classList.add('show');
+
+            try {
+                const response = await fetch(`/admin/url/${shortened}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    document.getElementById('detailShortUrl').textContent = shortened;
+                    document.getElementById('detailOriginalUrl').textContent = data.original_url;
+                    document.getElementById('detailTitle').textContent = data.og_title || '(タイトルなし)';
+                    document.getElementById('detailAccessCount').textContent = data.access_count;
+                    document.getElementById('detailAccessLimit').textContent = data.access_limit ? `${data.access_limit} 回` : '無制限';
+                    document.getElementById('detailExpiresAt').textContent = formatDate(data.expires_at);
+                    document.getElementById('detailCreatedAt').textContent = formatDate(data.created_at, true);
+                } else {
+                    throw new Error('URL詳細の取得に失敗しました');
+                }
+            } catch (error) {
+                console.error('URL詳細の取得エラー:', error);
+                showNotification(error.message || 'URL詳細の取得に失敗しました', 'error');
+                modal.classList.remove('show');
+            }
+        }
+
+        async function updateUrlAccessChart(shortened) {
+            try {
+                const response = await fetch(`/admin/url/${shortened}/stats`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const ctx = document.getElementById('urlAccessChart').getContext('2d');
+
+                    if (urlAccessChart) {
+                        urlAccessChart.destroy();
+                    }
+
+                    urlAccessChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.labels,
+                            datasets: [{
+                                label: 'アクセス数',
+                                data: data.values,
+                                borderColor: '#34d399',
+                                backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: {
+                                        color: 'rgba(63, 63, 70, 0.2)'
+                                    },
+                                    ticks: {
+                                        color: '#71717a',
+                                        font: {
+                                            size: 11
+                                        }
+                                    }
+                                },
+                                x: {
+                                    grid: {
+                                        color: 'rgba(63, 63, 70, 0.2)'
+                                    },
+                                    ticks: {
+                                        color: '#71717a',
+                                        font: {
+                                            size: 11
+                                        },
+                                        maxRotation: 45,
+                                        minRotation: 45
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('アクセス統計の取得エラー:', error);
+            }
+        }
+
+        function showBatchMenu() {
+            const menu = document.getElementById('batchMenu');
+            menu.classList.toggle('hidden');
+
+            const closeMenu = (e) => {
+                if (!menu.contains(e.target) && !e.target.closest('button')) {
+                    menu.classList.add('hidden');
+                    document.removeEventListener('click', closeMenu);
+                }
+            };
+
+            document.removeEventListener('click', closeMenu);
+            setTimeout(() => {
+                document.addEventListener('click', closeMenu);
+            }, 0);
+        }
+
+        function copyDetailUrl() {
+            const shortened = document.getElementById('detailShortUrl').textContent;
+            copyUrl(shortened);
+        }
+
+        let currentSort = { field: 'created_at', order: 'desc' };
+        async function sortUrls(field) {
+            if (currentSort.field === field) {
+                currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.order = 'asc';
+            }
+            
+            try {
+                const response = await fetch(`/admin/urls?sort_by=${field}&order=${currentSort.order}`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    updateUrlList(data.urls);
+                }
+            } catch (error) {
+                console.error('並び替えエラー:', error);
+                showNotification('並び替えに失敗しました', 'error');
+            }
+        }
+
+        function updatePagination(currentPage, totalPages) {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+
+            const prevButton = document.createElement('button');
+            prevButton.className = `px-3 py-1.5 rounded-lg text-zinc-400 bg-zinc-800/50 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`;
+            prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            if (currentPage > 1) {
+                prevButton.onclick = () => loadUrls(currentPage - 1);
+            }
+            pagination.appendChild(prevButton);
+
+            for (let i = 1; i <= totalPages; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.className = `px-3 py-1.5 rounded-lg text-zinc-400 bg-zinc-800/50 ${i === currentPage ? 'bg-emerald-400/10 text-emerald-400' : ''}`;
+                pageButton.textContent = i;
+                pageButton.onclick = () => loadUrls(i);
+                pagination.appendChild(pageButton);
+            }
+
+            const nextButton = document.createElement('button');
+            nextButton.className = `px-3 py-1.5 rounded-lg text-zinc-400 bg-zinc-800/50 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`;
+            nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            if (currentPage < totalPages) {
+                nextButton.onclick = () => loadUrls(currentPage + 1);
+            }
+            pagination.appendChild(nextButton);
+        }
+    </script>
+</body>
+</html> 

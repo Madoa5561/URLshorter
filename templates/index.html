@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moyashi URL Shortener</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMzRkMzk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEzLjgyOCAxMC4xNzJhNCA0IDAgMDAtNS42NTYgMGwtNCA0YTQgNCAwIDEwNS42NTYgNS42NTZsMS4xMDItMS4xMDFtLS43NTgtNC44OTlhNCA0IDAgMDA1LjY1NiAwbDQtNGE0IDQgMCAwMC01LjY1Ni01LjY1NmwtMS4xIDEuMSIvPjwvc3ZnPg==">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/reset/tailwind.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/runtime/uno.css">
+    <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime/uno.global.js"></script>
+    <link rel="preload" href="https://www.transparenttextures.com/patterns/subtle-dots.png" as="image">
+    <script>
+        window.__unocss = {
+            preflights: [
+                {
+                    getCSS: () => `
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { min-height: 100vh; }
+                    `
+                }
+            ],
+            theme: {
+                colors: {
+                    zinc: {
+                        100: '#f4f4f5',
+                        200: '#e4e4e7',
+                        300: '#d4d4d8',
+                        400: '#a1a1aa',
+                        500: '#71717a',
+                        600: '#52525b',
+                        700: '#3f3f46',
+                        800: '#27272a',
+                        900: '#18181b'
+                    },
+                    emerald: {
+                        400: '#34d399'
+                    },
+                    amber: {
+                        300: '#fcd34d',
+                        400: '#fbbf24'
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        [un-cloak] {
+            opacity: 0;
+        }
+        .preload * {
+            -webkit-transition: none !important;
+            -moz-transition: none !important;
+            -ms-transition: none !important;
+            -o-transition: none !important;
+            transition: none !important;
+        }
+        .main-content {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+        }
+        .main-content.loaded {
+            opacity: 1;
+        }
+        .main {
+            flex: 1;
+            padding-bottom: 2rem;
+        }
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background-color: #000000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease-out;
+        }
+        #loading-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #27272a;
+            border-top-color: #34d399;
+            border-radius: 50%;
+            animation: spinner 0.8s linear infinite;
+        }
+        @keyframes spinner {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        @keyframes subtle-fade {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animation-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        .animation-fade {
+            animation: subtle-fade 3s ease-in-out infinite;
+        }
+        .accordion__content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, transform 0.3s ease-out;
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        .accordion__content--open {
+            max-height: 2000px;
+            opacity: 1;
+            transform: translateY(0);
+            transition: max-height 0.5s ease-in, opacity 0.5s ease-in, transform 0.5s ease-in;
+        }
+        .card {
+            position: relative;
+            border-radius: 0.75rem;
+        }
+        .card::before {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            border-radius: 0.75rem;
+            padding: 1px;
+            background: linear-gradient(45deg, #3f3f46, transparent, #3f3f46);
+            -webkit-mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+            mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        .input-focus-effect {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease-out;
+        }
+        .input-focus-effect::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 0.5rem;
+            padding: 1px;
+            background: linear-gradient(45deg, transparent, rgba(52, 211, 153, 0.3), transparent);
+            -webkit-mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+            mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.3s ease-out;
+        }
+        .input-focus-effect:focus-within::before {
+            opacity: 1;
+        }
+        .input-focus-effect::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 0.5rem;
+            padding: 1px;
+            background: linear-gradient(45deg, transparent, rgba(52, 211, 153, 0.1), transparent);
+            -webkit-mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+            mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+        .input-focus-effect input {
+            position: relative;
+            z-index: 1;
+            transition: all 0.3s ease-out;
+            background: linear-gradient(180deg, rgba(24, 24, 27, 0.8), rgba(24, 24, 27, 0.9));
+        }
+        .input-focus-effect input:focus {
+            background: linear-gradient(180deg, rgba(24, 24, 27, 0.9), rgba(24, 24, 27, 0.95));
+            box-shadow: 
+                0 0 0 1px rgba(52, 211, 153, 0.1),
+                0 4px 12px rgba(0, 0, 0, 0.1),
+                0 2px 4px rgba(0, 0, 0, 0.1),
+                inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .button-hover-effect {
+            position: relative;
+            overflow: hidden;
+        }
+        .button-hover-effect::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease-out;
+        }
+        .button-hover-effect:hover::before {
+            transform: translateX(100%);
+        }
+        /* 設定ボタンのアニメーション */
+        .settings-button.active svg {
+            transform: rotate(180deg);
+            color: #34d399;
+        }
+
+        /* 設定パネルのアニメーション */
+        .settings-panel {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .settings-panel.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ダークモードのdatetime入力フィールド用のスタイル */
+        input[type="datetime-local"] {
+            background: linear-gradient(180deg, rgba(24, 24, 27, 0.8), rgba(24, 24, 27, 0.9));
+            color: #fafafa;
+        }
+        
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="15" viewBox="0 0 24 24"><path fill="%2334d399" d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>');
+            filter: invert(0.8);
+            cursor: pointer;
+        }
+        
+        input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper {
+            padding: 0;
+        }
+        
+        input[type="datetime-local"]::-webkit-datetime-edit,
+        input[type="datetime-local"]::-webkit-datetime-edit-year-field,
+        input[type="datetime-local"]::-webkit-datetime-edit-month-field,
+        input[type="datetime-local"]::-webkit-datetime-edit-day-field,
+        input[type="datetime-local"]::-webkit-datetime-edit-hour-field,
+        input[type="datetime-local"]::-webkit-datetime-edit-minute-field,
+        input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
+            color: #fafafa;
+        }
+        
+        input[type="datetime-local"]::-webkit-datetime-edit-text {
+            color: #71717a;
+            padding: 0 0.2em;
+        }
+        
+        input[type="datetime-local"]::-webkit-inner-spin-button {
+            display: none;
+        }
+        
+        input[type="datetime-local"]::-webkit-clear-button {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-zinc-900 min-h-screen text-zinc-100 selection:bg-zinc-700 selection:text-zinc-100">
+    <div id="loading-screen">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="background-pattern fixed inset-0 bg-[url('https://www.transparenttextures.com/patterns/subtle-dots.png')] opacity-5 pointer-events-none"></div>
+        
+        <div id="notification" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 translate-y-full opacity-0 z-50 transition-all duration-300 ease-out">
+            <div class="flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-800/90 backdrop-blur-sm border border-emerald-400/30 shadow-lg">
+                <svg id="notificationIcon" class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span id="notificationMessage" class="text-sm text-zinc-100"></span>
+            </div>
+        </div>
+
+        <header class="header fixed w-full top-0 z-50 bg-zinc-900/90 backdrop-blur-sm border-b border-zinc-800">
+            <div class="header__container container mx-auto px-4 py-4 md:py-5">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-4 md:space-x-8">
+                        <h1 class="flex items-center">
+                            <div class="flex items-center">
+                                <span class="text-base md:text-xl font-mono text-emerald-400">moyashi</span>
+                                <span class="text-zinc-600 mx-2 md:mx-2.5">//</span>
+                                <span class="text-xs md:text-sm font-mono text-zinc-400">url.shortener</span>
+                            </div>
+                        </h1>
+                    </div>
+                    <nav class="header__nav flex items-center gap-4 md:gap-6">
+                        <a href="/api-document" class="header__link text-zinc-500 hover:text-zinc-300 transition-all duration-300 flex items-center gap-2">
+                            <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span class="text-xs md:text-sm">Api Document</span>
+                        </a>
+                        <a href="https://x.com/shota5561" target="_blank" class="header__link text-zinc-500 hover:text-zinc-300 transition-all duration-300">
+                            <svg class="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                            </svg>
+                        </a>
+                        <a href="https://github.com/madoa5561" target="_blank" class="header__link text-zinc-500 hover:text-zinc-300 transition-all duration-300">
+                            <svg class="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+                            </svg>
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </header>
+
+        <main class="main pt-24 md:pt-32">
+            <section class="url-shorter py-6 md:py-8">
+                <div class="url-shorter__container container mx-auto px-4">
+                    <div class="url-shorter__content max-w-2xl mx-auto">
+                        <div class="url-shorter__card card bg-zinc-800/90 backdrop-blur-sm p-6 md:p-8 shadow-xl">
+                            <div class="url-shorter__form space-y-4 md:space-y-6">
+                                <div class="flex gap-2">
+                                    <div class="input-focus-effect flex-1">
+                                        <input type="url" id="originalUrl" placeholder="URLを入力してください" required
+                                            class="url-shorter__input w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border border-zinc-700/50 focus:outline-none text-zinc-100 placeholder-zinc-500 text-sm md:text-base">
+                                    </div>
+                                    <button onclick="toggleSettings()" id="settingsButton"
+                                        class="settings-button px-3 md:px-4 bg-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-lg transition-all duration-300 hover:bg-zinc-600">
+                                        <svg class="w-5 h-5 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <div id="settingsPanel" class="settings-panel hidden opacity-0 transform translate-y-2">
+                                    <div class="card bg-zinc-800/50 p-4">
+                                        <div class="space-y-6">
+                                            <div class="space-y-3">
+                                                <div class="flex items-center gap-2">
+                                                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                    </svg>
+                                                    <div class="text-sm text-zinc-400">アクセス制限（任意）</div>
+                                                </div>
+                                                <div class="flex gap-2">
+                                                    <input type="number" id="accessLimit" name="accessLimit" min="1"
+                                                        class="flex-1 px-4 py-3 rounded-lg bg-zinc-800/80 border border-zinc-700/50 text-zinc-100 placeholder-zinc-500
+                                                        focus:outline-none focus:bg-zinc-800 focus:border-emerald-400/30"
+                                                        placeholder="制限なしの場合は空欄">
+                                                    <button type="button" onclick="clearInput('accessLimit')" 
+                                                        class="p-2 text-zinc-400 hover:text-zinc-200 transition-colors duration-300 bg-zinc-800/80 border border-zinc-700/50 rounded-lg hover:border-zinc-600">
+                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                                <div class="grid grid-cols-4 gap-2">
+                                                    <button onclick="setAccessLimit(10)" 
+                                                        class="px-3 py-1.5 text-xs rounded-lg bg-zinc-800/50 border border-zinc-700/30 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600/50 transition-all duration-300">
+                                                        10回
+                                                    </button>
+                                                    <button onclick="setAccessLimit(50)" 
+                                                        class="px-3 py-1.5 text-xs rounded-lg bg-zinc-800/50 border border-zinc-700/30 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600/50 transition-all duration-300">
+                                                        50回
+                                                    </button>
+                                                    <button onclick="setAccessLimit(100)" 
+                                                        class="px-3 py-1.5 text-xs rounded-lg bg-zinc-800/50 border border-zinc-700/30 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600/50 transition-all duration-300">
+                                                        100回
+                                                    </button>
+                                                    <button onclick="setAccessLimit(500)" 
+                                                        class="px-3 py-1.5 text-xs rounded-lg bg-zinc-800/50 border border-zinc-700/30 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600/50 transition-all duration-300">
+                                                        500回
+                                                    </button>
+                                                </div>
+                                                <div class="text-xs text-zinc-500">アクセス可能回数を制限します。空欄の場合は無制限となります。</div>
+                                            </div>
+
+                                            <div class="space-y-3">
+                                                <div class="flex items-center gap-2">
+                                                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <div class="text-sm text-zinc-400">有効期限（任意）</div>
+                                                </div>
+                                                <div class="space-y-3">
+                                                    <div class="flex gap-2">
+                                                        <input type="datetime-local" id="expiresAt" name="expiresAt"
+                                                            class="flex-1 px-4 py-3 rounded-lg bg-zinc-800/80 border border-zinc-700/50 text-zinc-100 placeholder-zinc-500
+                                                            focus:outline-none focus:bg-zinc-800 focus:border-emerald-400/30">
+                                                        <button type="button" onclick="clearInput('expiresAt')" 
+                                                            class="p-2 text-zinc-400 hover:text-zinc-200 transition-colors duration-300 bg-zinc-800/80 border border-zinc-700/50 rounded-lg hover:border-zinc-600">
+                                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    <div class="grid grid-cols-4 gap-2">
+                                                        <button onclick="setExpiry('30min')" 
+                                                            class="px-3 py-1.5 text-xs rounded-lg bg-zinc-800/50 border border-zinc-700/30 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600/50 transition-all duration-300">
+                                                            30分
+                                                        </button>
+                                                        <button onclick="setExpiry('1hour')" 
+                                                            class="px-3 py-1.5 text-xs rounded-lg bg-zinc-800/50 border border-zinc-700/30 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600/50 transition-all duration-300">
+                                                            1時間
+                                                        </button>
+                                                        <button onclick="setExpiry('1day')" 
+                                                            class="px-3 py-1.5 text-xs rounded-lg bg-zinc-800/50 border border-zinc-700/30 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600/50 transition-all duration-300">
+                                                            1日
+                                                        </button>
+                                                        <button onclick="setExpiry('7days')" 
+                                                            class="px-3 py-1.5 text-xs rounded-lg bg-zinc-800/50 border border-zinc-700/30 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600/50 transition-all duration-300">
+                                                            7日
+                                                        </button>
+                                                    </div>
+                                                    <div class="text-xs text-zinc-500">URLの有効期限を設定します。空欄の場合は無期限となります。</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button onclick="shortenUrl()" id="shortenButton"
+                                    class="url-shorter__button button-hover-effect w-full bg-zinc-100 text-zinc-900 font-medium py-2.5 md:py-3 px-4 md:px-6 rounded-lg transition-all duration-300 hover:bg-white hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] animation-fade text-sm md:text-base">
+                                    短縮する
+                                </button>
+                            </div>
+                            <div id="result" class="url-shorter__result mt-4 md:mt-6 space-y-4 hidden">
+                                <div class="url-shorter__result-content flex gap-2 md:gap-3">
+                                    <div class="input-focus-effect flex-1">
+                                        <input type="text" id="shortenedUrl" readonly
+                                            class="url-shorter__result-input w-full px-3 md:px-4 py-2.5 md:py-3 rounded-lg border border-zinc-700/50 focus:outline-none text-zinc-100 text-sm md:text-base">
+                                    </div>
+                                    <button onclick="copyUrl()" id="copyButton"
+                                        class="url-shorter__copy-button button-hover-effect px-4 md:px-6 py-2.5 md:py-3 bg-zinc-700 text-zinc-100 font-medium rounded-lg transition-all duration-300 hover:bg-zinc-600 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] text-sm md:text-base">
+                                        コピー
+                                    </button>
+                                </div>
+
+                                <div id="preview" class="space-y-3 hidden">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                        <div class="text-sm text-zinc-400">プレビュー</div>
+                                    </div>
+                                    <div class="card bg-zinc-800/50 p-4 space-y-4">
+                                        <div class="flex gap-4">
+                                            <div id="ogImage" class="w-20 h-20 rounded bg-zinc-800/80 border border-zinc-700/30 overflow-hidden flex-shrink-0">
+                                                <img src="" alt="" class="w-full h-full object-cover">
+                                            </div>
+                                            <div class="min-w-0">
+                                                <h3 id="ogTitle" class="text-zinc-100 font-medium mb-2 line-clamp-1"></h3>
+                                                <p id="ogDescription" class="text-sm text-zinc-400 line-clamp-2"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div id="accessLimitDisplay" class="hidden">
+                                        <div class="px-3 md:px-4 py-2 rounded-lg bg-zinc-800/50 border border-zinc-700/30">
+                                            <div class="text-xs text-zinc-400 mb-1">アクセス制限</div>
+                                            <div id="accessLimitValue" class="text-zinc-100"></div>
+                                        </div>
+                                    </div>
+                                    <div id="expiresAtDisplay" class="hidden">
+                                        <div class="px-3 md:px-4 py-2 rounded-lg bg-zinc-800/50 border border-zinc-700/30">
+                                            <div class="text-xs text-zinc-400 mb-1">有効期限</div>
+                                            <div id="expiresAtValue" class="text-zinc-100"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="bg-zinc-900/90 backdrop-blur-sm border-t border-zinc-800 py-3 md:py-4 mt-auto">
+            <div class="container mx-auto px-4">
+                <div class="flex flex-col items-center justify-center space-y-1 md:space-y-1.5">
+                    <div class="flex items-center space-x-1.5 md:space-x-2">
+                        <span class="text-zinc-500 text-[10px] md:text-xs">Created with</span>
+                        <svg class="w-2.5 h-2.5 md:w-3 md:h-3 text-zinc-400 animate-pulse hover:text-pink-400 transition-colors duration-300" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                        </svg>
+                        <a href="https://github.com/nezumi0627" target="_blank" 
+                            class="group relative inline-block text-zinc-400 hover:text-zinc-200 transition-colors duration-300">
+                            <span class="relative z-10 text-xs md:text-sm">ねずみ</span>
+                            <div class="absolute inset-x-0 -bottom-0.5 h-px bg-gradient-to-r from-transparent via-zinc-400 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
+                        </a>
+                    </div>
+                    <div class="flex items-center space-x-1.5 md:space-x-2">
+                        <span class="text-zinc-600 text-[10px] md:text-xs tracking-wider">© 2024</span>
+                        <div class="flex items-center">
+                            <span class="text-[10px] md:text-xs font-mono text-emerald-400">moyashi</span>
+                            <span class="text-zinc-600 mx-1 md:mx-1.5">//</span>
+                            <span class="text-[10px] md:text-xs font-mono text-zinc-400">url.shortener</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                Promise.all([
+                    document.fonts.ready,
+                    new Promise(resolve => {
+                        const bgImage = new Image();
+                        bgImage.src = 'https://www.transparenttextures.com/patterns/subtle-dots.png';
+                        bgImage.onload = resolve;
+                    }),
+                    new Promise(resolve => setTimeout(resolve, 300))
+                ]).then(() => {
+                    const mainContent = document.querySelector('.main-content');
+                    mainContent.classList.add('loaded');
+                    
+                    const loadingScreen = document.getElementById('loading-screen');
+                    loadingScreen.classList.add('fade-out');
+                    
+                    setTimeout(() => {
+                        loadingScreen.style.display = 'none';
+                    }, 200);
+                });
+            }, 500);
+        });
+
+        document.getElementById('toggleDocs').addEventListener('click', function() {
+            const content = document.getElementById('docsContent');
+            const button = this;
+            
+            if (!content.classList.contains('accordion__content--open')) {
+                content.style.display = 'block';
+                requestAnimationFrame(() => {
+                    content.classList.add('accordion__content--open');
+                });
+            } else {
+                content.classList.remove('accordion__content--open');
+                content.addEventListener('transitionend', function handler() {
+                    if (!content.classList.contains('accordion__content--open')) {
+                        content.style.display = 'none';
+                    }
+                    content.removeEventListener('transitionend', handler);
+                });
+            }
+            
+            button.setAttribute('aria-expanded', content.classList.contains('accordion__content--open'));
+        });
+
+        // 設定パネルの表示/非表示
+        function toggleSettings() {
+            const settingsPanel = document.getElementById('settingsPanel');
+            const settingsButton = document.getElementById('settingsButton');
+            
+            if (settingsPanel.classList.contains('hidden')) {
+                // パネルを表示
+                settingsPanel.classList.remove('hidden');
+                // 表示アニメーションのために少し待つ
+                requestAnimationFrame(() => {
+                    settingsPanel.classList.add('show');
+                    settingsButton.classList.add('active');
+                });
+            } else {
+                settingsPanel.classList.remove('show');
+                settingsButton.classList.remove('active');
+                settingsPanel.addEventListener('transitionend', function handler() {
+                    settingsPanel.classList.add('hidden');
+                    settingsPanel.removeEventListener('transitionend', handler);
+                }, { once: true });
+            }
+        }
+
+        function setExpiry(type) {
+            const now = new Date();
+            const expiresAt = document.getElementById('expiresAt');
+            
+            switch (type) {
+                case '30min':
+                    now.setMinutes(now.getMinutes() + 30);
+                    break;
+                case '1hour':
+                    now.setHours(now.getHours() + 1);
+                    break;
+                case '1day':
+                    now.setDate(now.getDate() + 1);
+                    break;
+                case '7days':
+                    now.setDate(now.getDate() + 7);
+                    break;
+            }
+            
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            expiresAt.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+            expiresAt.focus();
+        }
+
+        function clearExpiry() {
+            document.getElementById('expiryDateTime').value = '';
+        }
+
+        function calculateExpiryDate() {
+            const dateTimeStr = document.getElementById('expiryDateTime').value;
+            if (!dateTimeStr) return null;
+            return new Date(dateTimeStr).toISOString();
+        }
+
+        // 日付入力フィールドの最小値を現在時刻に設定
+        document.addEventListener('DOMContentLoaded', () => {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            const dateTimeStr = now.toISOString().slice(0, 16);
+            
+            const expiryDateTime = document.getElementById('expiryDateTime');
+            expiryDateTime.min = dateTimeStr;
+        }
+
+        async function shortenUrl() {
+            const urlInput = document.getElementById('originalUrl');
+            const accessLimit = document.getElementById('accessLimit');
+            const expiresAt = document.getElementById('expiresAt');
+            
+            if (!urlInput.value) {
+                showNotification('URLを入力してください', 'error');
+                return;
+            }
+
+            try {
+                const requestData = {
+                    url: urlInput.value
+                };
+
+                if (accessLimit.value) {
+                    requestData.access_limit = parseInt(accessLimit.value);
+                }
+
+                if (expiresAt.value) {
+                    const expDate = new Date(expiresAt.value);
+                    requestData.expires_at = expDate.toISOString();
+                }
+
+                const response = await fetch('/shorten', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('result').classList.remove('hidden');
+                    
+                    document.getElementById('shortenedUrl').value = data.shortened_url;
+                    
+                    const preview = document.getElementById('preview');
+                    const ogTitle = document.getElementById('ogTitle');
+                    const ogDescription = document.getElementById('ogDescription');
+                    const ogImage = document.getElementById('ogImage').querySelector('img');
+                    
+                    if (data.og_data && (data.og_data.title || data.og_data.description || data.og_data.image)) {
+                        preview.classList.remove('hidden');
+                        
+                        if (data.og_data.title) {
+                            ogTitle.textContent = data.og_data.title;
+                            ogTitle.classList.remove('hidden');
+                        } else {
+                            ogTitle.classList.add('hidden');
+                        }
+                        
+                        if (data.og_data.description) {
+                            ogDescription.textContent = data.og_data.description;
+                            ogDescription.classList.remove('hidden');
+                        } else {
+                            ogDescription.classList.add('hidden');
+                        }
+                        
+                        if (data.og_data.image) {
+                            ogImage.src = data.og_data.image;
+                            ogImage.classList.remove('hidden');
+                        } else {
+                            ogImage.classList.add('hidden');
+                        }
+                    } else {
+                        preview.classList.add('hidden');
+                    }
+                    
+                    const accessLimitDisplay = document.getElementById('accessLimitDisplay');
+                    const accessLimitValue = document.getElementById('accessLimitValue');
+                    if (data.access_limit) {
+                        accessLimitDisplay.classList.remove('hidden');
+                        accessLimitValue.textContent = `${data.access_limit}回まで`;
+                    } else {
+                        accessLimitDisplay.classList.add('hidden');
+                    }
+
+                    const expiresAtDisplay = document.getElementById('expiresAtDisplay');
+                    const expiresAtValue = document.getElementById('expiresAtValue');
+                    if (data.expires_at) {
+                        expiresAtDisplay.classList.remove('hidden');
+                        const expDate = new Date(data.expires_at);
+                        const options = {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            timeZoneName: 'short'
+                        };
+                        expiresAtValue.textContent = expDate.toLocaleString('ja-JP', options);
+                    } else {
+                        expiresAtDisplay.classList.add('hidden');
+                    }
+
+                    showNotification(data.message || 'URLを短縮しました', 'success');
+                } else {
+                    showNotification(data.error || 'エラーが発生しました', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('エラーが発生しました', 'error');
+            }
+        }
+
+        // URLのコピー
+        function copyUrl() {
+            const shortenedUrl = document.getElementById('shortenedUrl');
+            shortenedUrl.select();
+            document.execCommand('copy');
+            showNotification('URLをコピーしました');
+        }
+
+        function resetForm() {
+            document.getElementById('originalUrl').value = '';
+            document.getElementById('accessLimit').value = '';
+            document.getElementById('expiryType').value = '';
+            document.getElementById('expiryDuration').value = '';
+            document.getElementById('expiryDate').value = '';
+            document.getElementById('expiryTime').value = '';
+            document.getElementById('expiryFields').classList.add('hidden');
+            document.getElementById('result').classList.add('hidden');
+            document.getElementById('preview').classList.add('hidden');
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const messageElement = document.getElementById('notificationMessage');
+            const icon = document.getElementById('notificationIcon');
+            
+            messageElement.textContent = message;
+            
+            if (type === 'error') {
+                icon.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                `;
+                icon.classList.remove('text-emerald-400');
+                icon.classList.add('text-red-400');
+                notification.querySelector('div').classList.remove('border-emerald-400/30');
+                notification.querySelector('div').classList.add('border-red-400/30');
+            } else {
+                icon.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                `;
+                icon.classList.remove('text-red-400');
+                icon.classList.add('text-emerald-400');
+                notification.querySelector('div').classList.remove('border-red-400/30');
+                notification.querySelector('div').classList.add('border-emerald-400/30');
+            }
+            
+            notification.style.transform = 'translate(-50%, -100%)';
+            notification.style.opacity = '1';
+            
+            setTimeout(() => {
+                notification.style.transform = 'translate(-50%, 100%)';
+                notification.style.opacity = '0';
+            }, 3000);
+        }
+
+        function setAccessLimit(limit) {
+            const accessLimit = document.getElementById('accessLimit');
+            accessLimit.value = limit;
+            accessLimit.focus();
+        }
+
+        function clearInput(inputId) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.value = '';
+                input.focus();
+                showNotification('設定をクリアしました');
+            }
+        }
+    </script>
+</body>
+</html> 
