@@ -6,7 +6,6 @@
     <title>Moyashi URL Shortener</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMzRkMzk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEzLjgyOCAxMC4xNzJhNCA0IDAgMDAtNS42NTYgMGwtNCA0YTQgNCAwIDEwNS42NTYgNS42NTZsMS4xMDItMS4xMDFtLS43NTgtNC44OTlhNCA0IDAgMDA1LjY1NiAwbDQtNGE0IDQgMCAwMC01LjY1Ni01LjY1NmwtMS4xIDEuMSIvPjwvc3ZnPg==">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/reset/tailwind.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/runtime/uno.css">
     <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime/uno.global.js"></script>
     <link rel="preload" href="https://www.transparenttextures.com/patterns/subtle-dots.png" as="image">
     <script>
@@ -544,27 +543,34 @@
             }, 500);
         });
 
-        document.getElementById('toggleDocs').addEventListener('click', function() {
-            const content = document.getElementById('docsContent');
-            const button = this;
-            
-            if (!content.classList.contains('accordion__content--open')) {
-                content.style.display = 'block';
-                requestAnimationFrame(() => {
-                    content.classList.add('accordion__content--open');
-                });
-            } else {
-                content.classList.remove('accordion__content--open');
-                content.addEventListener('transitionend', function handler() {
-                    if (!content.classList.contains('accordion__content--open')) {
-                        content.style.display = 'none';
-                    }
-                    content.removeEventListener('transitionend', handler);
-                });
-            }
-            
-            button.setAttribute('aria-expanded', content.classList.contains('accordion__content--open'));
-        });
+        const toggleDocsButton = document.getElementById('toggleDocs');
+        if (toggleDocsButton) {
+            toggleDocsButton.addEventListener('click', function() {
+                const content = document.getElementById('docsContent');
+                const button = this;
+
+                if (!content) {
+                    return;
+                }
+
+                if (!content.classList.contains('accordion__content--open')) {
+                    content.style.display = 'block';
+                    requestAnimationFrame(() => {
+                        content.classList.add('accordion__content--open');
+                    });
+                } else {
+                    content.classList.remove('accordion__content--open');
+                    content.addEventListener('transitionend', function handler() {
+                        if (!content.classList.contains('accordion__content--open')) {
+                            content.style.display = 'none';
+                        }
+                        content.removeEventListener('transitionend', handler);
+                    });
+                }
+
+                button.setAttribute('aria-expanded', content.classList.contains('accordion__content--open'));
+            });
+        }
 
         // 設定パネルの表示/非表示
         function toggleSettings() {
@@ -619,11 +625,15 @@
         }
 
         function clearExpiry() {
-            document.getElementById('expiryDateTime').value = '';
+            const expiresAtInput = document.getElementById('expiresAt');
+            if (expiresAtInput) {
+                expiresAtInput.value = '';
+            }
         }
 
         function calculateExpiryDate() {
-            const dateTimeStr = document.getElementById('expiryDateTime').value;
+            const expiresAtInput = document.getElementById('expiresAt');
+            const dateTimeStr = expiresAtInput ? expiresAtInput.value : '';
             if (!dateTimeStr) return null;
             return new Date(dateTimeStr).toISOString();
         }
@@ -633,10 +643,12 @@
             const now = new Date();
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
             const dateTimeStr = now.toISOString().slice(0, 16);
-            
-            const expiryDateTime = document.getElementById('expiryDateTime');
-            expiryDateTime.min = dateTimeStr;
-        }
+
+            const expiresAtInput = document.getElementById('expiresAt');
+            if (expiresAtInput) {
+                expiresAtInput.min = dateTimeStr;
+            }
+        });
 
         async function shortenUrl() {
             const urlInput = document.getElementById('originalUrl');
@@ -755,15 +767,27 @@
         }
 
         function resetForm() {
-            document.getElementById('originalUrl').value = '';
-            document.getElementById('accessLimit').value = '';
-            document.getElementById('expiryType').value = '';
-            document.getElementById('expiryDuration').value = '';
-            document.getElementById('expiryDate').value = '';
-            document.getElementById('expiryTime').value = '';
-            document.getElementById('expiryFields').classList.add('hidden');
-            document.getElementById('result').classList.add('hidden');
-            document.getElementById('preview').classList.add('hidden');
+            const originalUrl = document.getElementById('originalUrl');
+            const accessLimit = document.getElementById('accessLimit');
+            const expiresAtInput = document.getElementById('expiresAt');
+            const result = document.getElementById('result');
+            const preview = document.getElementById('preview');
+
+            if (originalUrl) {
+                originalUrl.value = '';
+            }
+            if (accessLimit) {
+                accessLimit.value = '';
+            }
+            if (expiresAtInput) {
+                expiresAtInput.value = '';
+            }
+            if (result) {
+                result.classList.add('hidden');
+            }
+            if (preview) {
+                preview.classList.add('hidden');
+            }
         }
 
         function showNotification(message, type = 'success') {
