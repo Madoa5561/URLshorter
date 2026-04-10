@@ -31,7 +31,6 @@ logger.addHandler(handler)
 load_dotenv()
 
 app = Flask(__name__)
-# CORSの設定をより柔軟に
 CORS(app, resources={
     r"/*": {
         "origins": "*",  # 開発環境では全てのオリジンを許可
@@ -43,17 +42,17 @@ CORS(app, resources={
 })
 app.config['JSON_AS_ASCII'] = False
 
-# 環境変数からシークレットキーを取る
-ADMIN_SECRET = os.getenv('ADMIN_SECRET')
-if not ADMIN_SECRET:
-    print("警告: ADMIN_SECRETが設定されていません。デフォルトの開発用キーを使用します。")
-    ADMIN_SECRET = 'default-secret-key-for-development'
+app.secret_key = os.getenv('ADMIN_SECRET')
+if not app.secret_key:
+    logger.warning("ADMIN_SECRETが設定されていません\nデフォルトの開発用キーを使用します")
+    app.secret_key = 'default-secret-key-for-development'
 
-# レート制限の設定
+# -------- rate limiting --------
 RATE_LIMIT = 75  # クエスト数/分
 rate_limit_dict = {}
+# -------------------------------
 
-# グローバル変数
+
 request_stats = {
     'total_requests': 0,
     'error_count': 0,
@@ -61,11 +60,7 @@ request_stats = {
     'ip_blacklist': set(),
     'request_times': []
 }
-
-# クリーンアップスレッドの管理
 cleanup_thread = None
-
-# スレッドセーフなデータベース接続
 db_connection = threading.local()
 
 def get_db():
@@ -93,17 +88,11 @@ def rate_limit(f):
     def decorated_function(*args, **kwargs):
         ip = request.remote_addr
         current_time = time.time()
-        
-        # 古いエントリを削除
         if ip in rate_limit_dict:
             rate_limit_dict[ip] = [t for t in rate_limit_dict[ip] if current_time - t < 60]
-        
-        # 新しいリクエストを追加
         if ip not in rate_limit_dict:
             rate_limit_dict[ip] = []
         rate_limit_dict[ip].append(current_time)
-        
-        # レート制限をチェク
         if len(rate_limit_dict[ip]) > RATE_LIMIT:
             return jsonify({
                 "error": "レート制限を超えました。しばらく待ってから再試行してください。",
@@ -191,7 +180,7 @@ def is_valid_url(url):
         if not isinstance(url, str):
             return False
             
-        # URLの長さチェック（最小長を3に緩和）
+        # URLの長さチェック
         if len(url) > 2000 or len(url) < 3:
             return False
             
@@ -222,7 +211,7 @@ def is_valid_url(url):
         except requests.exceptions.RequestException:
             pass
             
-        # HEADリクエストが失敗してもURLとして有効と判断
+        # HEADリクエストが失敗してもURLとして有効とみなす
         return True
             
     except Exception as e:
@@ -264,7 +253,7 @@ def fetch_meta(url):
             'image': og_image['content'] if og_image else None
         }
     except Exception as e:
-        print(f"Error fetching metadata: {e}")
+        logger.error(f"Error fetching metadata: {e}")
         return {
             'title': None,
             'description': None,
@@ -272,17 +261,13 @@ def fetch_meta(url):
         }
 
 def generate_random_string(length=6):
-    # 紛らわしい文字を除外し、より読みやすい文字セットを使用
     safe_chars = ''.join(c for c in string.ascii_letters + string.digits 
                         if c not in 'Il1O0o')
-    # 最初の文字は数字以外（より読みやすく
     first = ''.join(c for c in safe_chars if not c.isdigit())
     rest = safe_chars
-    
-    # 禁止パターンをチェックする関数
     def is_safe_string(s):
-        # 不適切な単語のリスト
-        forbidden_words = ['xxx', 'sex', 'fuck', 'shit', 'dick', 'porn']
+        # 不適切ワードのチェックレイヤー
+        forbidden_words = []
         return not any(word in s.lower() for word in forbidden_words)
     
     # 安全な文字列が生成されるまで繰り返す
@@ -312,7 +297,6 @@ def parse_datetime(datetime_str):
     try:
         # ISO 8601形式の場合
         if 'T' in datetime_str:
-            # ミリ秒とタイムゾーン部分を処理
             dt_str = datetime_str.split('.')[0]
             if 'Z' in datetime_str:
                 dt = datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S')
@@ -321,7 +305,7 @@ def parse_datetime(datetime_str):
                 dt = datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S')
                 return dt.astimezone(timezone.utc)
         else:
-            # 従来の形式の場合（ローカルタイムとして解釈してUTCに変換）
+            # 従来の形式の場合
             dt = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M:%S')
             local_tz = datetime.now(timezone.utc).astimezone().tzinfo
             return dt.replace(tzinfo=local_tz).astimezone(timezone.utc)
@@ -341,7 +325,7 @@ def save_url_mapping_with_meta(shortened, original, meta, access_limit=None, exp
     conn = get_db()
     c = conn.cursor()
     try:
-        # expires_atをパースしてUTC形式で保存
+        # expires_atをparseしてUTC形式で保存
         parsed_expires_at = None
         if expires_at:
             parsed_expires_at = format_datetime_for_db(parse_datetime(expires_at))
@@ -481,7 +465,7 @@ def get_url_list(page=1, per_page=10, sort_by='created_at', order='desc'):
         'urls': urls
     }
 
-# エラーハンドリング
+# -------- Error Handling --------
 @app.errorhandler(404)
 def not_found_error(error):
     add_log('error', f'404エラー: {request.url}')
@@ -500,16 +484,18 @@ def internal_error(error):
         error="サーバーエラーが発生しました",
         code=500
     ), 500
+# ------------------------------
 
-# セキュリティミドルウェア
+
+# middleware
 def security_middleware():
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
-            # リクエスト数の制限
+            # req limit
             request_stats['total_requests'] += 1
             
-            # IPブラックリストのチェック
+            # ip blacklist check
             if request.remote_addr in request_stats['ip_blacklist']:
                 add_log('error', f'ブラックリストIPからのアクセス: {request.remote_addr}')
                 abort(403)
@@ -525,7 +511,7 @@ def security_middleware():
                 add_log('error', f'レート制限超過によるブラックリスト追加: {request.remote_addr}')
                 abort(429)
             
-            # ベーシックなセキュリティヘッダーの追加
+            # security headers
             response = f(*args, **kwargs)
             if isinstance(response, tuple):
                 response, status_code = response
@@ -545,7 +531,7 @@ def security_middleware():
         return wrapped
     return decorator
 
-# パフォーマンスモニタリング
+# performance monitoring
 def monitor_performance():
     def decorator(f):
         @wraps(f)
@@ -553,38 +539,27 @@ def monitor_performance():
             start_time = time.time()
             result = f(*args, **kwargs)
             end_time = time.time()
-            
-            # 実行時間の記録
             execution_time = end_time - start_time
             logger.info(f'Performance: {f.__name__} took {execution_time:.2f} seconds')
-            
-            # 遅いリクエストの検出
-            if execution_time > 1.0:  # 1秒以上かかるリクエスト
-                logger.warning(f'遅いリクエスト検出: {f.__name__} took {execution_time:.2f} seconds')
-            
+            if execution_time > 1.0:
+                logger.warning(f'slow Req: {f.__name__} took {execution_time:.2f} seconds')
             return result
         return wrapped
     return decorator
 
-# データベースクリーンアップ
 def cleanup_old_data():
     try:
         conn = get_db()
         c = conn.cursor()
-        
-        # 古いログの削除（30日以上前）
         c.execute('''
             DELETE FROM access_logs 
             WHERE timestamp < datetime('now', '-30 days')
         ''')
-        
-        # 未使用のURLの削除（90日以上アクセスがない）
         c.execute('''
             DELETE FROM url_mapping 
             WHERE access_count = 0 
             AND created_at < datetime('now', '-90 days')
         ''')
-        
         conn.commit()
         logger.info('Database cleanup completed successfully')
     except Exception as e:
@@ -593,22 +568,18 @@ def cleanup_old_data():
     finally:
         close_db()
 
-# 定期的なクリーンアップの実行
 def schedule_cleanup():
     global cleanup_thread
     cleanup_old_data()
-    # 24時間ごとに実行
-    cleanup_thread = threading.Timer(86400, schedule_cleanup)
-    cleanup_thread.daemon = True  # デーモンスレッドとして実行
+    cleanup_thread = threading.Timer(86400, schedule_cleanup) # 24h
+    cleanup_thread.daemon = True  # deamon
     cleanup_thread.start()
 
-# アプリケーション初期化時の処理
 def init_app():
     init_db()
     schedule_cleanup()
     logger.info('Application initialized successfully')
 
-# アプリケーション終了時の処理
 def cleanup_app():
     global cleanup_thread
     if cleanup_thread:
@@ -616,7 +587,7 @@ def cleanup_app():
         cleanup_thread = None
     logger.info('Application cleanup completed')
 
-# URLエンドポイントの強化
+# endpoints
 @app.route('/shorten', methods=['POST'])
 @rate_limit
 @security_middleware()
@@ -627,28 +598,18 @@ def shorten_url():
         data = request.get_json()
         if not data or 'url' not in data:
             return jsonify({"error": "URLが必要です"}), 400
-
         original_url = data['url'].strip()
-        
-        # 自身のドメインへの短縮を防止
         if 's.moyashi.xyz' in original_url:
             add_log('error', f'自身のドメインの短縮は禁止: {original_url}')
             return jsonify({"error": "このドメインのURLは短縮できません"}), 400
-        
-        # URL検証
         if not is_valid_url(original_url):
             add_log('error', f'無効なURL形式: {original_url}')
             return jsonify({"error": "無効なURL形式です"}), 400
-
-        # メタデータ取得とURL保存
         meta = fetch_meta(original_url)
         shortened = generate_unique_shortened()
-        
         try:
-            # アクセス制限と有効期限の取得
             access_limit = data.get('access_limit')
             expires_at = data.get('expires_at')
-            
             save_url_mapping_with_meta(shortened, original_url, meta, access_limit, expires_at)
         except Exception as e:
             logger.error(f'URL保存エラー: {str(e)}')
@@ -674,14 +635,12 @@ def shorten_url():
         add_log('error', f'サーバーエラー: {str(e)}')
         return jsonify({"error": "サーバーエラーが発生しました"}), 500
 
-# faviconのルート（エラーログを出さないように最初に定義）
 @app.route('/favicon.ico')
 def favicon():
     return '', 204
 
 @app.route('/<shortened>')
 def redirect_to_original(shortened):
-    # 短コードの検証（より厳密に）
     if not re.match(r'^[a-zA-Z][a-zA-Z0-9]{5}$', shortened):
         add_log('error', f'無効なURL形式: {shortened}')
         return render_template('error.html', 
@@ -698,21 +657,18 @@ def redirect_to_original(shortened):
             original_url="#"
         ), 404
     
-    # アクセス制限のチェック
     if url_info['access_limit'] is not None and url_info['access_count'] >= url_info['access_limit']:
         add_log('error', f'アクセス制限超過: {shortened}')
         return render_template('expired.html',
             error_type='limit_exceeded'
         ), 403
     
-    # 有効期限のチェック
     if is_expired(url_info['expires_at']):
         add_log('error', f'有効期限切れ: {shortened}')
         return render_template('expired.html',
             error_type='expired'
         ), 403
     
-    # URLの有効性を再確認
     if not is_valid_url(url_info['original_url']):
         add_log('error', f'無効なURL: {url_info["original_url"]}')
         return render_template('error.html',
@@ -720,7 +676,6 @@ def redirect_to_original(shortened):
             original_url="#"
         ), 400
     
-    # アクセスカウントを増やす
     try:
         increment_access_count(shortened)
         add_log('success', f'リダイレクト: {shortened}', f'To: {url_info["original_url"]}')
@@ -734,7 +689,6 @@ def redirect_to_original(shortened):
         og_image=url_info['og_image']
     )
 
-# 管理用APIの強化
 @app.route('/admin/system-stats')
 @admin_required
 @monitor_performance()
@@ -761,7 +715,6 @@ def manual_cleanup():
         logger.error(f'Manual cleanup failed: {e}')
         return jsonify({"error": "クリーンアップに失敗しました"}), 500
 
-# 管理用APIエンドポイント
 @app.route('/admin/stats')
 @admin_required
 def admin_stats():
@@ -782,7 +735,6 @@ def admin_urls():
     conn = get_db()
     c = conn.cursor()
 
-    # 基本のSQLクエリ
     base_query = '''
         SELECT shortened, original, og_title, og_description, access_count, created_at, access_limit, expires_at
         FROM url_mapping
@@ -791,21 +743,16 @@ def admin_urls():
     where_clauses = []
     params = []
 
-    # フィルター条件の追加
     if filter_type == 'active':
         where_clauses.append('(expires_at IS NULL OR expires_at > datetime("now"))')
     elif filter_type == 'expired':
         where_clauses.append('expires_at <= datetime("now")')
     elif filter_type == 'limited':
         where_clauses.append('access_limit IS NOT NULL')
-
-    # 検索条件の追加
     if search_term:
         where_clauses.append('(LOWER(original) LIKE ? OR LOWER(og_title) LIKE ?)')
         search_pattern = f'%{search_term}%'
         params.extend([search_pattern, search_pattern])
-
-    # WHERE句の構築
     if where_clauses:
         where_clause = ' WHERE ' + ' AND '.join(where_clauses)
         base_query += where_clause
@@ -897,10 +844,6 @@ def api_document():
     """Api Document ページを表示する"""
     return render_template('api_document.html')
 
-# セッション設定
-app.secret_key = ADMIN_SECRET  # セッション用のシークレットキー
-
-# 認証関連のエンドポイント
 @app.route('/admin/auth', methods=['POST'])
 def admin_auth():
     """管理者認証エンドポイント"""
@@ -912,8 +855,6 @@ def admin_auth():
         session['admin_authenticated'] = True
         session.permanent = True  # セッションの永続化
         app.permanent_session_lifetime = timedelta(days=1)  # セッション有期限を1日に設定
-        
-        # セキュリティトークンを生成
         token = os.urandom(32).hex()
         session['admin_token'] = token
         
@@ -921,8 +862,6 @@ def admin_auth():
             "message": "認証に成功しました",
             "token": token
         }), 200
-    
-    # 失敗した認証試行をログに記録
     add_log('error', f'認証失敗: {request.remote_addr}')
     return jsonify({"error": "認証に失敗しました"}), 401
 
@@ -951,7 +890,6 @@ def admin_stats_chart():
     c = conn.cursor()
     
     if period == 'daily':
-        # 日別のアクセス統計（過去30日）
         c.execute('''
             SELECT DATE(created_at) as date, COUNT(*) as count
             FROM url_mapping
@@ -960,7 +898,6 @@ def admin_stats_chart():
             ORDER BY date
         ''')
     elif period == 'weekly':
-        # 週別のアクセス統計（過去12週）
         c.execute('''
             SELECT strftime('%Y-%W', created_at) as week, COUNT(*) as count
             FROM url_mapping
@@ -968,8 +905,7 @@ def admin_stats_chart():
             GROUP BY week
             ORDER BY week
         ''')
-    else:  # monthly
-        # 月別のアクセス統計（過去12ヶ月）
+    else:
         c.execute('''
             SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count
             FROM url_mapping
@@ -981,7 +917,6 @@ def admin_stats_chart():
     stats = c.fetchall()
     close_db()
     
-    # データを整形
     labels = []
     values = []
     for stat in stats:
@@ -1049,7 +984,6 @@ def batch_operation():
     
     try:
         if operation == 'delete':
-            # 一括削除
             placeholders = ','.join(['?' for _ in urls])
             c.execute(f'DELETE FROM url_mapping WHERE shortened IN ({placeholders})', urls)
             deleted_count = c.rowcount
