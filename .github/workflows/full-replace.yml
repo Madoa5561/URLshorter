@@ -47,3 +47,5 @@ jobs:
 
           git commit -m "Replace repository with latest Cloudflare Workers version"
           git push origin HEAD:main
+
+# Second push intentionally triggers this already-registered workflow.
