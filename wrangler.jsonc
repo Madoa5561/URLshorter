@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "urlshorter-cf",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "urlshorter-db",
+      "database_id": "7f436294-25be-4b79-b9af-b145209848b3"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "0 0 * * *"
+    ]
+  },
+  "vars": {
+    "ADMIN_SECRET": "default-secret-key-for-development"
+  }
+}
