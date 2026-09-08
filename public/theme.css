@@ -1,0 +1,217 @@
+/* ========================================================
+   季節自動テーマシステム (Season Theme System)
+   春: 桜 (Sakura)
+   夏: 海 (Ocean)
+   秋: 紅葉 (Autumn Maple)
+   冬: 雪 (Snow)
+   ======================================================== */
+
+:root {
+    --theme-accent: #34d399;
+    --theme-accent-hover: #10b981;
+    --theme-accent-rgb: 52, 211, 153;
+    --theme-glow: rgba(52, 211, 153, 0.15);
+    --theme-gradient: linear-gradient(135deg, #10b981, #34d399);
+}
+
+/* 春 (Spring - 桜) */
+body[data-season="spring"] {
+    --theme-accent: #f472b6;
+    --theme-accent-hover: #ec4899;
+    --theme-accent-rgb: 244, 114, 182;
+    --theme-glow: rgba(244, 114, 182, 0.16);
+    --theme-gradient: linear-gradient(135deg, #ec4899, #f472b6);
+}
+
+/* 夏 (Summer - 海) */
+body[data-season="summer"] {
+    --theme-accent: #38bdf8;
+    --theme-accent-hover: #0284c7;
+    --theme-accent-rgb: 56, 189, 248;
+    --theme-glow: rgba(56, 189, 248, 0.16);
+    --theme-gradient: linear-gradient(135deg, #0284c7, #38bdf8);
+}
+
+/* 秋 (Autumn - 紅葉) */
+body[data-season="autumn"] {
+    --theme-accent: #fb923c;
+    --theme-accent-hover: #ea580c;
+    --theme-accent-rgb: 251, 146, 60;
+    --theme-glow: rgba(251, 146, 60, 0.18);
+    --theme-gradient: linear-gradient(135deg, #ea580c, #f97316);
+}
+
+/* 冬 (Winter - 雪) */
+body[data-season="winter"] {
+    --theme-accent: #93c5fd;
+    --theme-accent-hover: #60a5fa;
+    --theme-accent-rgb: 147, 197, 253;
+    --theme-glow: rgba(147, 197, 253, 0.16);
+    --theme-gradient: linear-gradient(135deg, #3b82f6, #93c5fd);
+}
+
+/* 共通アクセントカラー上書き */
+.text-emerald-400,
+.text-emerald-500,
+.logo-text {
+    color: var(--theme-accent) !important;
+}
+
+.bg-emerald-500,
+.bg-emerald-600 {
+    background: var(--theme-gradient) !important;
+}
+
+.hover\:bg-emerald-600:hover {
+    filter: brightness(1.1);
+}
+
+.border-emerald-500,
+.border-emerald-400 {
+    border-color: var(--theme-accent) !important;
+}
+
+/* スピナー */
+.spinner,
+.loading-spinner {
+    border-top-color: var(--theme-accent) !important;
+}
+
+/* 入力フォーカスエフェクト */
+.input-focus-effect::before {
+    background: linear-gradient(45deg, transparent, rgba(var(--theme-accent-rgb), 0.35), transparent) !important;
+}
+
+.input-focus-effect::after {
+    background: linear-gradient(45deg, transparent, rgba(var(--theme-accent-rgb), 0.15), transparent) !important;
+}
+
+.input-focus-effect input:focus {
+    box-shadow: 0 0 0 1px rgba(var(--theme-accent-rgb), 0.25),
+                0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* キャンバスアニメーションレイヤー */
+#seasonCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* 背景アンビエントグラデーション */
+.season-ambient {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    transition: background 1s ease-in-out;
+}
+
+body[data-season="default"] .season-ambient {
+    background: transparent;
+}
+
+body[data-season="spring"] .season-ambient {
+    background: radial-gradient(circle at 80% 20%, rgba(244, 114, 182, 0.08) 0%, transparent 60%),
+                radial-gradient(circle at 10% 80%, rgba(251, 113, 133, 0.05) 0%, transparent 50%);
+}
+
+body[data-season="summer"] .season-ambient {
+    background: radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 60%),
+                radial-gradient(circle at 20% 80%, rgba(6, 182, 212, 0.06) 0%, transparent 50%);
+}
+
+body[data-season="autumn"] .season-ambient {
+    background: radial-gradient(circle at 80% 20%, rgba(249, 115, 22, 0.09) 0%, transparent 60%),
+                radial-gradient(circle at 20% 80%, rgba(234, 88, 12, 0.06) 0%, transparent 50%);
+}
+
+body[data-season="winter"] .season-ambient {
+    background: radial-gradient(circle at 80% 20%, rgba(147, 197, 253, 0.08) 0%, transparent 60%),
+                radial-gradient(circle at 20% 80%, rgba(191, 219, 254, 0.05) 0%, transparent 50%);
+}
+
+/* テーマ切り替えバッジ */
+.season-selector {
+    position: relative;
+    display: inline-block;
+}
+
+.season-badge {
+    background: rgba(39, 39, 42, 0.7);
+    border: 1px solid rgba(var(--theme-accent-rgb), 0.35);
+    color: var(--theme-accent);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    user-select: none;
+}
+
+.season-badge:hover {
+    background: rgba(var(--theme-accent-rgb), 0.15);
+    border-color: var(--theme-accent);
+}
+
+.season-icon-slot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: 0 0 1.25rem;
+}
+
+.theme-badge-icon,
+.theme-menu-icon {
+    display: block;
+    width: 1.2rem;
+    height: 1.2rem;
+    object-fit: contain;
+    object-position: center;
+    pointer-events: none;
+    user-select: none;
+    transition: transform 160ms ease, filter 160ms ease;
+    filter: drop-shadow(0 0 4px rgba(var(--theme-accent-rgb), 0.12));
+}
+
+.theme-menu-icon {
+    width: 1.05rem;
+    height: 1.05rem;
+    flex: 0 0 1.05rem;
+}
+
+.season-badge:hover .theme-badge-icon,
+.season-dropdown button:hover .theme-menu-icon {
+    transform: scale(1.08);
+}
+
+@media (max-width: 640px) {
+    .season-icon-slot {
+        width: 1.2rem;
+        height: 1.2rem;
+        flex-basis: 1.2rem;
+    }
+
+    .theme-badge-icon {
+        width: 1.15rem;
+        height: 1.15rem;
+    }
+}
+
+.season-dropdown {
+    animation: fadeInScale 0.2s ease-out;
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}

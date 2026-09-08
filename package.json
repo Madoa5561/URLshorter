@@ -1,0 +1,33 @@
+{
+  "name": "urlshorter-cf",
+  "version": "1.0.0",
+  "description": "URL Shortener running entirely on Cloudflare Workers and D1",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "tsc --noEmit",
+    "cf-typegen": "wrangler types",
+    "d1:init:local": "wrangler d1 execute DB --local --file=./schema.sql",
+    "d1:init:remote": "wrangler d1 execute DB --remote --file=./schema.sql",
+    "postinstall": "node scripts/patch-workerd.js",
+    "test": "node scripts/test-endpoints.mjs"
+  },
+  "keywords": [
+    "cloudflare-workers",
+    "hono",
+    "d1",
+    "url-shortener"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "hono": "^4.7.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workerd-windows-64": "^1.20260908.1",
+    "@cloudflare/workers-types": "^4.20250224.0",
+    "typescript": "^5.7.3",
+    "wrangler": "^3.111.0"
+  }
+}
