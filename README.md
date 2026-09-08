@@ -1,2 +1,0 @@
-# URLshorter
-Flask application
